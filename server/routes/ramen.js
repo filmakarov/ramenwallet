@@ -1,6 +1,16 @@
 var express = require('express');
 var router = express.Router();
 const dbo = require('../db/conn');
+const fetch = require("node-fetch");
+
+const abiF = require('../../client/src/abi.js');
+const abiStorage = abiF.abiStorage;
+
+const authToken = "18711fc0-ef2a-484c-b94d-56758406a2ea";
+const apiKey = "iBKW4cFsx.807b0d3f-5d68-4572-84b4-4d5dd0d59bd9";
+const addContractUrl = "https://api.biconomy.io/api/v1/smart-contract/public-api/addContract";
+const addMethodUrl = "https://api.biconomy.io/api/v1/meta-api/public-api/addMethod";
+
 
 //Clean address
 const getCleanAddress = function (rawAddress) {
@@ -10,6 +20,68 @@ const getCleanAddress = function (rawAddress) {
             cleanAddress = cleanAddress.toLowerCase();
     return cleanAddress;
 }
+    
+var abi = JSON.stringify(abiStorage);
+
+const registerContract = async function(newRamenContractAddress, walletId) {
+
+    var formDataC = new URLSearchParams({
+        "contractName" : "Timelock Wallet " + walletId,
+        "contractAddress" : newRamenContractAddress,
+        "abi" : abi,
+        "contractType" : "SC",
+        "metaTransactionType": "DEFAULT"
+      });
+
+    let formDataM = new URLSearchParams({
+        "apiType" : "custom",
+        "methodType" : "write",
+        "name": "claim",
+        "contractAddress" : newRamenContractAddress,
+        "method" : "claimDeposit"
+       }) 
+       
+    const requestOptionsC = {
+        method: 'POST',
+        headers: {  "Content-Type": "application/x-www-form-urlencoded", "authToken": authToken, "apiKey" : apiKey },
+        body: formDataC
+    };
+
+    const requestOptionsM = {
+        method: 'POST',
+        headers: {  "Content-Type": "application/x-www-form-urlencoded", "authToken": authToken, "apiKey" : apiKey },
+        body: formDataM
+    };
+      
+    fetch(addContractUrl, requestOptionsC)
+        .then(response => response.json())
+        .then(function (data) {
+            console.log("Contract registration response: ", data);
+            return fetch(addMethodUrl, requestOptionsM);
+        })
+        .then(response => response.json())     
+        .then(function (data) {
+            console.log("Method registration response: ", data);
+        })
+        .catch(error => console.error('Error:', error));
+
+}
+
+// const registerMethods = async function(newRamenContractAddress) {
+
+//       const requestOptions = {
+//         method: 'POST',
+//         headers: {  "Content-Type": "application/x-www-form-urlencoded", "authToken": authToken, "apiKey" : apiKey },
+//         body: formData
+//       };
+      
+//       fetch(addMethodUrl, requestOptions)
+//         .then(response => response.json())
+//         .then(data => console.log("Method registration response: ", data))     
+//         .catch(error => console.error('Error:', error));
+
+// }
+
 
 router.get('/', (req, res) => {
     res.send('Good day, commander!');
@@ -67,12 +139,13 @@ router.get('/getramen/:address', async (req, res) => {
     
 })
 
-router.post('/setramen/:ownerAddress/:ramenAddress', async (req, res) => {
+router.post('/setramen/:ownerAddress/:ramenAddress/:walletId', async (req, res) => {
     //var ownerAddress = getCleanAddress(req.params.ownerAddress);
     //var ramenAddress = getCleanAddress(req.params.ramenAddress);
     // they come already clean
     var ownerAddress = req.params.ownerAddress;
     var ramenAddress = req.params.ramenAddress;
+    var walletId = req.params.walletId;
 
     var api_key = req.body.headers.APIMKEY;
 
@@ -85,11 +158,14 @@ router.post('/setramen/:ownerAddress/:ramenAddress', async (req, res) => {
             if(api_key === process.env.REACT_APP_API_M_KEY){
                 if(ownerAddress&&ramenAddress){
                     console.log('Owner address is: %s, ramen address is %s', ownerAddress, ramenAddress);
-                    console.log('Set Ramen to DB');
- 
+
+                    console.log('Trying to register ramen to Biconomy');
+                    registerContract(ramenAddress, walletId);
+
+                    console.log('Trying to record Ramen to DB');
                     const dbConnect = dbo.getDb();
                     
-                    dbConnect.collection("users").insertOne({"userAddress": ownerAddress, "ramenAddress": ramenAddress}, async function (err, result) {
+                    dbConnect.collection("users").insertOne({"userAddress": ownerAddress, "ramenAddress": ramenAddress, "registered": true}, async function (err, result) {
                         if (err) {
                              console.log('DB connect error');
                             res.status(400).send("DB connect error");

@@ -120,7 +120,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
         if(userAddress){
             if(userAddress !== '0'){
                 
-                /*
+                
                 let cleanAddress = getCleanAddress(userAddress);
 
                 client.get(`/ramen/getramen/${cleanAddress}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
@@ -137,10 +137,10 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                         // console.log('Connection error');
                         setRamenAddress("0");
                     });
-                */
+                
 
                 //FOR SERVERLESS
-                setRamenAddress("0xa392efee33f30d1e5f5250317f1ecbf918729395");
+                //setRamenAddress("0xa392efee33f30d1e5f5250317f1ecbf918729395");
                 /// DELETE IN PROD
                 
             } else {
@@ -207,7 +207,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                 // console.log('Mint complete!');
 
                 // Record to DB
-                await postRamenToDb(getCleanAddress(ownerAddress), getCleanAddress(resultAddress));
+                await postRamenToDb(getCleanAddress(ownerAddress), getCleanAddress(resultAddress), nextWalletId);
 
                 // register smart contract to Biconomy
 
@@ -217,8 +217,8 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
         }
     }
 
-    const postRamenToDb = async function (ownerAddress, newRamenAddress) {
-        client.post(`/ramen/setramen/${ownerAddress}/${newRamenAddress}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
+    const postRamenToDb = async function (ownerAddress, newRamenAddress, walletId) {
+        client.post(`/ramen/setramen/${ownerAddress}/${newRamenAddress}/${walletId}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
                     .then(async res => {
                         console.log('setramen response ok');
                         if(res.data.success){
