@@ -36,9 +36,9 @@ const registerContract = async function(newRamenContractAddress, walletId) {
     let formDataM = new URLSearchParams({
         "apiType" : "custom",
         "methodType" : "write",
-        "name": "claim",
+        "name": "metatxn",
         "contractAddress" : newRamenContractAddress,
-        "method" : "claimDeposit"
+        "method" : "executeMetaTransaction"
        }) 
        
     const requestOptionsC = {
@@ -62,6 +62,9 @@ const registerContract = async function(newRamenContractAddress, walletId) {
         .then(response => response.json())     
         .then(function (data) {
             console.log("Method registration response: ", data);
+
+            // RETURN API ID
+
         })
         .catch(error => console.error('Error:', error));
 
@@ -161,6 +164,8 @@ router.post('/setramen/:ownerAddress/:ramenAddress/:walletId', async (req, res) 
 
                     console.log('Trying to register ramen to Biconomy');
                     registerContract(ramenAddress, walletId);
+
+                    // TAKE METHOD API ID AND PUT IT IN DB
 
                     console.log('Trying to record Ramen to DB');
                     const dbConnect = dbo.getDb();

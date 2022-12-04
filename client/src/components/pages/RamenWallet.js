@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 //import { Helmet } from "react-helmet-async";
 import { HashLink as Link } from 'react-router-hash-link';
 import Web3 from 'web3';
-
 import { abiStorage } from '../../abi';
+
+let sigUtil = require("eth-sig-util");
 
 // Components
 
@@ -18,8 +19,33 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
 
     const [unclaimedDeposits, setUnclaimedDeposits] = useState([]);
 
-    useEffect(() => {
+    const tokenNames = {"0x0000000000000000000000000000000000000000": "ETH", 
+                        "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6": "wETH",
+                        "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984": "UNI"}
 
+    const ramenAddressRaw = "0xfa5F4a1eA6d8D9214Be9640BC934F24fbE06DE7D";
+    
+    const domainType = [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "verifyingContract", type: "address" },
+        { name: "salt", type: "bytes32" },
+    ];
+    const metaTransactionType = [
+        { name: "nonce", type: "uint256" },
+        { name: "from", type: "address" },
+        { name: "functionSignature", type: "bytes" }
+    ];
+    // replace the chainId 42 if network is not kovan
+    let domainData = {
+        name: "", //will set later
+        version: "1",
+        verifyingContract: ramenAddress,
+        // converts Number to bytes32. pass your chainId instead of 42 if network is not Kovan
+        salt : '0x' + (chainID).toString(16).padStart(64, '0')
+    };
+    
+    useEffect(() => {
     }); // constantly
 
     useEffect(() => {
@@ -28,10 +54,11 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
 
     useEffect(() => {
         getLastDeposit();
+        getDeposits();
     },[transactionState]); // on tr state
     
     useEffect(() => {
-        getDeposits();
+         getDeposits();
     },[lastDeposit]); // on lastDep
     
 
@@ -55,19 +82,174 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
         //forceUpdate();
     }
 
+    const getTokenName = (tokenAddress) => {
+        return tokenNames[tokenAddress];
+    }
+
+    const claimDeposit = async function (depositId) {
+        console.log("Claiming deposit: " , depositId);
+
+        await ramenContract.methods.claimDeposit(depositId).send({from: userAddress})
+        .on('transactionHash', function(hash){
+            // Txn sent , not confirmed on chain yet
+            // console.log('transactionHash');
+            setTransactionState("cl" + depositId); //claiming deposit
+        })
+        .on("error", function(error) {
+            // User declined txn
+            // console.log('Mint error');
+            // console.log(error.message);
+            alert('You canceled txn');
+            setTransactionState(1);
+        })
+        .on("receipt", async function(receipt) {
+            // Txn confirmed on-chain
+            // console.log('Mint complete!');
+            alert('Deposit claimed');
+            getDeposits()
+            .then(setTransactionState(3));
+        });
+    }
+
+    const claimDepositGasless = async function (depositId) {
+        let nonce = await ramenContract.methods.getNonce(userAddress).call();
+        let ramenName = await ramenContract.methods.expName().call();
+        let functionSignature = ramenContract.methods.claimDeposit(parseInt(depositId)).encodeABI();
+
+        // let calldata = web3.eth.abi.encodeFunctionCall({
+        //     name: 'claimDeposit',
+        //     type: 'function',
+        //     inputs: [{
+        //         type: 'uint256',
+        //         name: 'depositId'
+        //     }]
+        // }, [depositId]);
+
+        // console.log(calldata);
+
+        let message = {};
+
+        message.nonce = parseInt(nonce);
+        message.from = userAddress;
+        message.functionSignature = functionSignature;
+
+        domainData.name = ramenName;
+
+        const dataToSign = JSON.stringify({
+            types: {
+              EIP712Domain: domainType,
+              MetaTransaction: metaTransactionType
+            },
+            domain: domainData,
+            primaryType: "MetaTransaction",
+            message: message
+        });
+
+        console.log("name ", domainData.name);
+
+        web3.currentProvider.sendAsync(
+            {
+              jsonrpc: "2.0",
+              id: 999999999999,
+              method: "eth_signTypedData_v4",
+              params: [userAddress, dataToSign]
+            },
+             function (error, response) {
+                    console.info(`User signature is ${response.result}`);
+                    if (error || (response && response.error)) 
+                     {
+                      alert("Could not get user signature");
+                     }
+                     else if (response && response.result) 
+                     {
+                       let { r, s, v } = getSignatureParameters(response.result);
+                       sendTransaction(userAddress, functionSignature, r, s, v, depositId);
+                     }
+            }
+          );
+
+    }
+
+    // here signer and sender is the same wallet
+    const sendTransaction = async (signerAddress, functionData, r, s, v, depositId) => {
+
+        console.log(signerAddress, " | ", functionData, " | ", r, " | ", s, " | ", v);
+        console.log('0x' + (chainID).toString(16).padStart(64, '0'));
+        
+        if (web3 && ramenContract) {
+            try {
+                fetch(`https://api.biconomy.io/api/v2/meta-tx/native`, {
+                    method: "POST",
+                    headers: {
+                      "x-api-key" : "iBKW4cFsx.807b0d3f-5d68-4572-84b4-4d5dd0d59bd9",
+                      'Content-Type': 'application/json;charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                      "to": ramenAddress,
+                      "apiId": "e9ee0a8a-7f6f-4509-af4f-b47e71ef4d9d",
+                      "params": [signerAddress, functionData, r, s, v],
+                      "from": signerAddress
+                    })
+                  })
+                  .then(response=>response.json())
+                  .then(async function(result) {
+                    console.log(result);
+                    //alert("BCNM: Transaction sent by relayer with hash ", result.txHash);
+                    console.log("BCNM: Transaction sent by relayer with hash ", result.txHash);
+                    setTransactionState("cl" + depositId); //claiming deposit
+          
+                    let receipt = await getTransactionReceiptMined(result.txHash, 2000);
+                    //setTransactionHash(result.txHash);
+                    alert("BCNM:  Transaction confirmed on chain");
+                    console.log("BCNM: Txn confirmed on-chain ", receipt);
+                    setTransactionState(3);
+                    //getQuoteFromNetwork();
+                  }).catch(function(error) {
+                      console.log(error)
+                    });
+            } catch (error) {
+                console.log(error);
+            }
+        }
+    };
+
+    const getTransactionReceiptMined = (txHash, interval) => {
+        const self = this;
+        const transactionReceiptAsync = async function(resolve, reject) {
+          var receipt = await web3.eth.getTransactionReceipt(txHash);
+          if (receipt == null) {
+              setTimeout(
+                  () => transactionReceiptAsync(resolve, reject),
+                  interval ? interval : 500);
+          } else {
+              resolve(receipt);
+          }
+        };
     
-    const listDeposits = unclaimedDeposits.map((deposit, index) => {
-        return (<div key={deposit[4]}>
-                    <div>**************</div>
-                    <strong>Deposit# {deposit[4]}</strong><br/>
-                    Token : {deposit[0]}<br/>
-                    Amount: {(deposit[1]/convertRate).toFixed(3)}<br/>
-                    Unlocks at: {deposit[2]}
-                    {
-                        (deposit[2] < Date.now()/1000) ? (<> *Claim* </>) : (<></>)
-                    }
-                </div>);
-    });
+        if (typeof txHash === "string") {
+            return new Promise(transactionReceiptAsync);
+        } else {
+            throw new Error("Invalid Type: " + txHash);
+        }
+    };
+
+    const getSignatureParameters = signature => {
+        if (!web3.utils.isHexStrict(signature)) {
+            throw new Error(
+                'Given value "'.concat(signature, '" is not a valid hex string.')
+            );
+        }
+        var r = signature.slice(0, 66);
+        var s = "0x".concat(signature.slice(66, 130));
+        var v = "0x".concat(signature.slice(130, 132));
+        v = web3.utils.hexToNumber(v);
+        if (![27, 28].includes(v)) v += 27;
+        return {
+            r: r,
+            s: s,
+            v: v
+        };
+    }; 
     
 
     const handleChangeNDA = (event) => {
@@ -76,69 +258,74 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
 
     const handleSubmitNDA = async (event) => {
         event.preventDefault();
-        let unlock_timestamp = (parseInt(Date.now()/1000)+parseInt(500));
+        let unlock_timestamp = (parseInt(Date.now()/1000)+parseInt(100));
         
         await ramenContract.methods.depositNative(unlock_timestamp).send({from: userAddress, value: (nativeDepositAmount*convertRate)})
         .on('transactionHash', function(hash){
-            // Транзакция отправлена, но еще не было подтверждения
+            // Txn sent , not confirmed on chain yet
             // console.log('transactionHash');
             setTransactionState(2);
         })
         .on("error", function(error) {
-            // Пользователь отменил транзакцию
+            // User declined txn
             // console.log('Mint error');
             // console.log(error.message);
+            alert('You canceled txn');
             setTransactionState(1);
         })
         .on("receipt", async function(receipt) {
-            // Транзакция успешно прошла, минтинг завершен
+            // Txn confirmed on-chain
             // console.log('Mint complete!');
             alert('Deposit created');
             setTransactionState(3);
         });
         
-      }
+    }
 
-    //await CollectionContract.methods.
-
-    const depositNative = () => {
-        return (
-            <form onSubmit={handleSubmitNDA}>
-                <label>
-                    Deposit amount:
-                    <select value={nativeDepositAmount} onChange={handleChangeNDA}>
-                        <option value="0.01">0.01</option>
-                        <option value="0.05">0.05</option>
-                        <option value="1">1</option>
-                    </select>
-                </label>
-                <input type="submit" value="Deposit" />
-            </form>
-        
-    )}
-
+    const listDeposits = unclaimedDeposits.map((deposit, index) => {
+        return (<div key={deposit[4]}>
+                    
+                    <strong>Deposit# {deposit[4]}</strong><br/>
+                    Token: {getTokenName(deposit[0])}<br/>
+                    Amount: {(deposit[1]/convertRate).toFixed(3)}<br/>
+                    {
+                        (deposit[2] < Date.now()/1000) ? 
+                        (<div>Unlocked: <span className="active" onClick={()=>claimDepositGasless(deposit[4])}>Claim</span></div>) : 
+                        (<>Unlocks in: {parseInt((deposit[2]-Date.now()/1000)/60)} min</>)
+                    }
+                    {
+                        (transactionState==="cl"+deposit[4])?(<div className="blink_me">...Claiming...</div>):(<></>)
+                    }
+                    <div>**************</div>
+                </div>);
+    });
 
     return ( 
         <>
             {(chainID!==5)?(<>Switch to Goerli</>):(
             <>
                 <div className="page-text">
-                    RAMEN CONTROL PANEL : {ramenAddress}    
+                    YOUR RAMEN WALLET : {ramenAddress}    
                 </div>
+                <div>==================</div>
                 <form onSubmit={handleSubmitNDA}>
                     <label>
                         Deposit amount:
+                        
                         <select value={nativeDepositAmount} onChange={handleChangeNDA}>
                             <option value="0.01">0.01</option>
                             <option value="0.05">0.05</option>
                             <option value="1">1</option>
                         </select>
+                        
                     </label>
-                    <input type="submit" value="Deposit" />
+                    <input className="active" type="submit" value="Deposit" />
                 </form>
-                <div>Deposits made: {lastDeposit}</div>
+                <div>Total deposits were made: {lastDeposit}</div>
+                <div className='dep-head'>**Unclaimed:**</div>
                 {/* <div>{unclaimedDeposits}</div> */}
                 <div>{listDeposits}</div>
+                {(transactionState===2)?(<div className="blink_me">...Deposit is being confirmed on-chain...</div>):(<></>)}
             </>
             )} 
         </> 

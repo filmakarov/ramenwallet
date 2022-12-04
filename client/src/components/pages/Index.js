@@ -21,10 +21,11 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
 		setCurrentPage('index');
 	}, [setCurrentPage]);
 
-    const [ramenAddress, setRamenAddress] = useState("0"); 
+    const [ramenAddress, setRamenAddress] = useState("0");
+    //const [ramenName, setRamenName] = useState(""); 
     const [ethBalance, setEthBalance] = useState("n/a");
     
-    const [erc20Balances, setErc20Balances] = useState({wETH: ["0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6", 1], 
+    const [erc20Balances, setErc20Balances] = useState({wETH: ["0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6", 0], 
                                                         UNI: ["0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", 0]});
 
     const [erc20got, setErc20got] = useState(false);
@@ -120,7 +121,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
         if(userAddress){
             if(userAddress !== '0'){
                 
-                
+                /*
                 let cleanAddress = getCleanAddress(userAddress);
 
                 client.get(`/ramen/getramen/${cleanAddress}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
@@ -137,10 +138,11 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                         // console.log('Connection error');
                         setRamenAddress("0");
                     });
-                
+               
+                */
 
                 //FOR SERVERLESS
-                //setRamenAddress("0xa392efee33f30d1e5f5250317f1ecbf918729395");
+                setRamenAddress("0x30c317c22ede09621f1bed0c676191fb1118220c");
                 /// DELETE IN PROD
                 
             } else {
@@ -209,7 +211,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                 // Record to DB
                 await postRamenToDb(getCleanAddress(ownerAddress), getCleanAddress(resultAddress), nextWalletId);
 
-                // register smart contract to Biconomy
+                alert('Ramen boiled');
 
                 //setRamenCreated(true);
             });
@@ -237,12 +239,12 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
     
     const listErc20Tokens = Object.keys(erc20Balances).map((token) => {
         return (<div key={token}>
-            {token} : {(erc20Balances[token][1]/convertRate).toFixed(3)}
+            {token} : {(erc20Balances[token][1]/convertRate).toFixed(3)} <a className="active" href="https://app.uniswap.org/#/swap" target="_blank">(&gt;)</a>
         </div>);
     });
 
     return (
-        <>
+        <div className="container">
             {/* <Helmet>
                 <title>{'Multiverso de Locomotoras - Mint'}</title>
                 <meta name="description" content={'The first generative banner project by Alejandro Burdisio'} />
@@ -253,7 +255,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                 <link rel="canonical" href={AppUrl} />
             </Helmet> */}
 
-            <div className="page-text">
+            <div className="terminal">
                 {(!isProvider)?(<>
                     <ConnectToWallets web3Connect={web3Connect} />
                 </>):(<>
@@ -265,26 +267,37 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                                 <div>Switch to Goerli</div>
                             </>):(
                             <>  
-                                You have no ramen wallet cooked yet. 
-                                <div onClick={()=>cloneWallet(userAddress)}>Cook a Ramen Wallet</div>
+                                { (transactionState === 2) ? ( <div class="blink_me"> 
+                                        .... Cooking your ramen ....
+                                    </div> ) : ( <>
+                                        You have no ramen wallet cooked yet. 
+                                        <div class="active" onClick={()=>cloneWallet(userAddress)}>
+                                            Cook a Ramen Wallet
+                                        </div>
+                                    </>)
+
+                                }
                                 {/* <div><RamenWallet ramenAddress={ramenAddress} AppName={AppName} AppUrl={AppUrl} /></div> */}
                             </>)
                         ) : (
                             <>
                                 {/* Your ramen: {ramenAddress} */}
-                                Kitchen:
+                                Welcome to kitchen!
                                 <div><RamenWallet ramenAddress={ramenAddress} chainID={chainID} CollectionContract={CollectionContract} userAddress={userAddress} convertRate={convertRate} web3={web3}/></div>
                             </>
                         )
                     }
-                    <div className="user_address">==========<br/>Your EOA address: {userAddress}</div>
-                    <div className="user_balance">ETH: {(ethBalance/convertRate).toFixed(3)} </div>
-                    <div>{(chainID !== 5)?(<></>):(<>{listErc20Tokens}</>)}</div>
-                    <div className="disconnect" onClick={() => web3Disconnect()}>Disconnect Wallet</div>
-                    
+                    <section className="eoa">
+                        <div className="user_address">==========<br/>Your EOA address: {userAddress}</div>
+                        <div className="user_balance">
+                            ETH: {(ethBalance/convertRate).toFixed(3)} <a className="active" href="https://goerlifaucet.com" target="_blank">(&gt;)</a>
+                        </div>
+                        <div>{(chainID !== 5)?(<></>):(<>{listErc20Tokens}</>)}</div>
+                        <div className="disconnect active" onClick={() => web3Disconnect()}>Disconnect Wallet</div>
+                    </section>
                 </>)}   
             </div>
-        </>
+        </div>
     )
 }
 

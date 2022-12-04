@@ -1,13 +1,98 @@
-body {
+/* body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+} */
+
+body {
+  font-family: monospace, source-code-pro, Menlo, Monaco, Consolas, 'Courier New';
+  color: white;
+  background: rgb(32, 32, 30);
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+input[type=submit] {
+  background-color: rgb(32, 32, 30);
+  font-family: monospace, source-code-pro, Menlo, Monaco, Consolas, 'Courier New';
+  font-size: 14;
+  border: none;
+}
+
+select {
+  font-family: monospace, source-code-pro, Menlo, Monaco, Consolas, 'Courier New';
+}
+
+.container {  
+  display: flex;  
+  justify-content: center;  
+  align-items: center;  
+  height: 100vh;
+} 
+
+.terminal {  
+  width: 70vw;  
+  height: 90vh;  
+  padding: 30px;
+} 
+
+.active {
+  color:rgb(8, 182, 31);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.eoa {
+  color: rgb(44, 200, 247);
+  padding-top: 50px;
+}
+
+.dep-head {
+  color: rgb(44, 200, 247);
+  padding-top: 10px;
+}
+
+
+.blink_me {
+  animation: blinker 3s linear infinite;
+}
+
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-character
+{
+   text-transform: uppercase;
+  background-image: linear-gradient(
+    -225deg,
+    #231557 0%,
+    #44107a 29%,
+    #ff1361 67%,
+    #fff800 100%
+  );
+  background-size: auto auto;
+  background-clip: border-box;
+  background-size: 200% auto;
+  color: #fff;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textclip 2s linear infinite;
+  display: inline-block;
+      font-size: 190px;
+}
+
+@keyframes textclip {
+  to {
+    background-position: 200% center;
+  }
 }
