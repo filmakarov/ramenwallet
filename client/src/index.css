@@ -69,6 +69,18 @@ select {
   }
 }
 
+.header img {
+  float: left;
+  width: 30px;
+  height: 30px;
+}
+
+.header h1 {
+  position: relative;
+  top: 0px;
+  left: 10px;
+}
+
 .animate-character
 {
    text-transform: uppercase;

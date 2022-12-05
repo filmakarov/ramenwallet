@@ -245,22 +245,15 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
 
     return (
         <div className="container">
-            {/* <Helmet>
-                <title>{'Multiverso de Locomotoras - Mint'}</title>
-                <meta name="description" content={'The first generative banner project by Alejandro Burdisio'} />
-                <meta name="keywords" content={'Multiverso de Locomotoras - Mint'} />
-                <meta property="og:title" content={'Multiverso de Locomotoras - Mint'} />
-                <meta property="og:url" content={AppUrl} />
-                <meta property="og:description" content={'Multiverso de Locomotoras - Mint'} />
-                <link rel="canonical" href={AppUrl} />
-            </Helmet> */}
 
             <div className="terminal">
                 {(!isProvider)?(<>
                     <ConnectToWallets web3Connect={web3Connect} />
                 </>):(<>
-                    <h1>Ramen Wallet</h1>
-                    {/* <Link to={'/allowlist'} title="Allowlist">Allowlist</Link><br /> */}
+                    <div className='header'>
+                        <img src="/img/logo.png" alt="logo" />
+                        <h1>Ramen Wallet</h1>
+                    </div>
                     {
                         (ramenAddress==="0") ? (
                             (chainID !== 5)?(<>
