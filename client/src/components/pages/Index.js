@@ -28,6 +28,8 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
     const [erc20Balances, setErc20Balances] = useState({wETH: ["0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6", 0], 
                                                         UNI: ["0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", 0]});
 
+    const [erc20sum, setErc20sum] = useState(0);                                            
+
     const [erc20got, setErc20got] = useState(false);
 
     const [transactionState, setTransactionState] = useState(0);
@@ -66,11 +68,14 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                     // so React does not re-render the component
 
                     //check erc20 balances
+                    let localSum = 0;
+
                     if (chainID === 5) {
                         var results = await Promise.all(Object.keys(localErc20Balances).map(async (token) => {
                             let curBalance = await getErc20Balance(localErc20Balances[token][0], userAddress);
                             localErc20Balances[token][1] = curBalance;
-                        })).then((results) => {setErc20got(true)});
+                            localSum += curBalance;
+                        })).then((results) => {setErc20sum(localSum)});
                     }  
                     // after erc20 awaits are resolved, we change state to re-render
 
@@ -283,7 +288,9 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                             <>
                                 {/* Your ramen: {ramenAddress} */}
                                 Welcome to kitchen!
-                                <div><RamenWallet ramenAddress={ramenAddress} chainID={chainID} CollectionContract={CollectionContract} userAddress={userAddress} convertRate={convertRate} web3={web3}/></div>
+                                <div>
+                                    <RamenWallet ramenAddress={ramenAddress} chainID={chainID} CollectionContract={CollectionContract} userAddress={userAddress} convertRate={convertRate} web3={web3} transactionState={transactionState} setTransactionState={setTransactionState}/>
+                                </div>
                             </>
                         )
                     }

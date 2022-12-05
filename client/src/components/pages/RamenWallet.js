@@ -5,13 +5,19 @@ import Web3 from 'web3';
 import { abiStorage } from '../../abi';
 
 let sigUtil = require("eth-sig-util");
+var BigNumber = require('bignumber.js');
 
 // Components
 
-const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web3Disconnect, web3, CollectionContract, convertRate, ramenAddress, chainID}) => {
+const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web3Disconnect, web3, CollectionContract, convertRate, ramenAddress, chainID, transactionState, setTransactionState}) => {
 
-    const [transactionState, setTransactionState] = useState(0);
+    //const [transactionState, setTransactionState] = useState(0);
     const [nativeDepositAmount, setNativeDepositAmount] = useState(0.01);
+    const [nativeDepositTime, setNativeDepositTime] = useState(1);
+
+    const [erc20DepositToken, setErc20DepositToken] = useState("0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6");
+    const [erc20DepositAmount, setErc20DepositAmount] = useState(0.01);
+    const [erc20DepositTime, setErc20DepositTime] = useState(1);
 
     const [lastDeposit, setLastDeposit] = useState(0);
 
@@ -23,7 +29,7 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
                         "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6": "wETH",
                         "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984": "UNI"}
 
-    const ramenAddressRaw = "0xfa5F4a1eA6d8D9214Be9640BC934F24fbE06DE7D";
+    const [time, setTime] = useState(Date.now());
     
     const domainType = [
         { name: "name", type: "string" },
@@ -50,6 +56,10 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
 
     useEffect(() => {
         getLastDeposit();
+        const interval = setInterval(() => setTime(Date.now()), 15000);
+        return () => {
+            clearInterval(interval);
+        };
     },[]); // once
 
     useEffect(() => {
@@ -59,8 +69,16 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
     
     useEffect(() => {
          getDeposits();
-    },[lastDeposit]); // on lastDep
+    },[lastDeposit]); // on lastDep   
     
+    //Clean address
+    const getCleanAddress = function (rawAddress) {
+        let cleanAddress = rawAddress.replace(/([\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+                cleanAddress = cleanAddress.replace(/[^a-z0-9]/gi, '');
+                cleanAddress = cleanAddress.trim();
+                cleanAddress = cleanAddress.toLowerCase();
+        return cleanAddress;
+    }
 
     const getLastDeposit = async function () {
         let lastDep = await ramenContract.methods.lastDepositId().call();
@@ -251,16 +269,108 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
         };
     }; 
     
+    const approveToken = async () => {
+        let erc20ApproveAbi = [
+            {
+                "inputs": [
+                  {
+                    "internalType": "address",
+                    "name": "spender",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "name": "approve",
+                "outputs": [
+                  {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                  }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+              }
+        ];
+        const tokenContract = new web3.eth.Contract(erc20ApproveAbi, erc20DepositToken);
+        let apprAmount = BigNumber(erc20DepositAmount).times(convertRate);
+        await tokenContract.methods.approve(ramenAddress, apprAmount).send({from: userAddress})
+        .on('transactionHash', function(hash){
+            // Txn sent , not confirmed on chain yet
+            // console.log('transactionHash');
+            setTransactionState(7); //approval in process
+        })
+        .on("error", function(error) {
+            // User declined txn
+            // console.log('Mint error');
+            // console.log(error.message);
+            alert('You canceled txn');
+            setTransactionState(1);
+        })
+        .on("receipt", async function(receipt) {
+            // Txn confirmed on-chain
+            // console.log('Mint complete!');
+            alert('Approved');
+            setTransactionState(3);
+        });
+    }
 
     const handleChangeNDA = (event) => {
         setNativeDepositAmount(event.target.value);
     }
 
+    const handleChangeNDTime = (event) => {
+        setNativeDepositTime(event.target.value);
+    }
+
     const handleSubmitNDA = async (event) => {
         event.preventDefault();
-        let unlock_timestamp = (parseInt(Date.now()/1000)+parseInt(100));
+        let unlock_timestamp = (parseInt(Date.now()/1000)+parseInt(60*nativeDepositTime));
         
         await ramenContract.methods.depositNative(unlock_timestamp).send({from: userAddress, value: (nativeDepositAmount*convertRate)})
+        .on('transactionHash', function(hash){
+            // Txn sent , not confirmed on chain yet
+            // console.log('transactionHash');
+            setTransactionState(2);
+        })
+        .on("error", function(error) {
+            // User declined txn
+            // console.log('Mint error');
+            // console.log(error.message);
+            alert('You canceled txn');
+            setTransactionState(1);
+        })
+        .on("receipt", async function(receipt) {
+            // Txn confirmed on-chain
+            // console.log('Mint complete!');
+            alert('Deposit created');
+            setTransactionState(3);
+        });
+        
+    }
+
+    const handleChangeEDA = (event) => {
+        setErc20DepositAmount(event.target.value);
+    }
+
+    const handleChangeEDT = (event) => {
+        setErc20DepositToken(event.target.value);
+    }
+
+    const handleChangeEDTime = (event) => {
+        setErc20DepositTime(event.target.value);
+    }
+
+    const handleSubmitEDA = async (event) => {
+        event.preventDefault();
+        let unlock_timestamp = (parseInt(Date.now()/1000)+parseInt(60*erc20DepositTime));
+        let depAmount = BigNumber(erc20DepositAmount).times(convertRate);
+        
+        await ramenContract.methods.depositERC20(erc20DepositToken, depAmount, unlock_timestamp).send({from: userAddress})
         .on('transactionHash', function(hash){
             // Txn sent , not confirmed on chain yet
             // console.log('transactionHash');
@@ -286,7 +396,8 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
         return (<div key={deposit[4]}>
                     
                     <strong>Deposit# {deposit[4]}</strong><br/>
-                    Token: {getTokenName(deposit[0])}<br/>
+                    Token: {getTokenName(getCleanAddress(deposit[0]))}<br/>
+                    {console.log(deposit[0])}
                     Amount: {(deposit[1]/convertRate).toFixed(3)}<br/>
                     {
                         (deposit[2] < Date.now()/1000) ? 
@@ -308,19 +419,54 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
                     YOUR RAMEN WALLET : {ramenAddress}    
                 </div>
                 <div>==================</div>
+                
                 <form onSubmit={handleSubmitNDA}>
                     <label>
-                        Deposit amount:
+                        Deposit ETH:
                         
                         <select value={nativeDepositAmount} onChange={handleChangeNDA}>
                             <option value="0.01">0.01</option>
                             <option value="0.05">0.05</option>
                             <option value="1">1</option>
                         </select>
-                        
+                        <span> for </span>
+                        <select value={nativeDepositTime} onChange={handleChangeNDTime}>
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                        </select>
+                        <span> min. </span>
                     </label>
                     <input className="active" type="submit" value="Deposit" />
                 </form>
+
+                <form onSubmit={handleSubmitEDA}>
+                    <label>
+                        Deposit:
+                        <select value={erc20DepositAmount} onChange={handleChangeEDA}>
+                            <option value="0.01">0.01</option>
+                            <option value="0.05">0.05</option>
+                            <option value="0.1">0.1</option>
+                        </select>
+                        <span> of </span>
+                        <select value={erc20DepositToken} onChange={handleChangeEDT}>
+                            <option value="0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6">wETH</option>
+                            <option value="0x1f9840a85d5af5bf1d1762f925bdaddc4201f984">UNI</option>
+                        </select>
+                        <span> for </span>
+                        <select value={erc20DepositTime} onChange={handleChangeEDTime}>
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                        </select>
+                        <span> min. </span>
+                    </label>
+                        <span className='active' onClick={approveToken}>Approve</span> &gt;&gt;
+                        <span>{(transactionState===7)?(<span class="blink_me">..approving..</span>):(<></>)}</span>
+                        <input className="active" type="submit" value="Deposit" />
+                </form>
+
+
                 <div>Total deposits were made: {lastDeposit}</div>
                 <div className='dep-head'>**Unclaimed:**</div>
                 {/* <div>{unclaimedDeposits}</div> */}
