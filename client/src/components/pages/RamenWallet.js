@@ -137,7 +137,7 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
 
     const claimDepositGasless = async function (depositId) {
         let nonce = await ramenContract.methods.getNonce(userAddress).call();
-        let ramenName = await ramenContract.methods.expName().call();
+        let ramenName = await ramenContract.methods.eip712_name().call();
         let functionSignature = ramenContract.methods.claimDeposit(parseInt(depositId)).encodeABI();
         let methodId;
         client.get(`/ramen/getmethodid/${ramenAddress}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
@@ -307,7 +307,6 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
               }
         ];
         const tokenContract = new web3.eth.Contract(erc20ApproveAbi, erc20DepositToken);
-        //let apprAmount = BigNumber(erc20DepositAmount).times(BigNumber(10).exponentiatedBy(18));
         await tokenContract.methods.approve(ramenAddress, web3.utils.toWei(erc20DepositAmount.toString())).send({from: userAddress})
         .on('transactionHash', function(hash){
             // Txn sent , not confirmed on chain yet
