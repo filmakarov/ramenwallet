@@ -23,8 +23,10 @@ const getCleanAddress = function (rawAddress) {
     
 var abi = JSON.stringify(abiStorage);
 
+/*
 const registerContract = async function(newRamenContractAddress, walletId) {
 
+    let methodId; 
     var formDataC = new URLSearchParams({
         "contractName" : "Timelock Wallet " + walletId,
         "contractAddress" : newRamenContractAddress,
@@ -62,29 +64,31 @@ const registerContract = async function(newRamenContractAddress, walletId) {
         .then(response => response.json())     
         .then(function (data) {
             console.log("Method registration response: ", data);
-
-            // RETURN API ID
-
+            //console.log("Method id ", data.apiIds[0].apiId);
+            methodId = data.apiIds[0].apiId;
+            return methodId;
         })
         .catch(error => console.error('Error:', error));
+} */
 
+const recordContractToDB = async function (ownerAddress, ramenAddress, methodId) {
+    const dbConnect = dbo.getDb();
+                    
+    dbConnect.collection("users").insertOne({"userAddress": ownerAddress, "ramenAddress": ramenAddress, "methodId": methodId, "registered": true}, async function (err, result) {
+        if (err) {
+            console.log('DB connect error');
+            res.status(400).send("DB connect error");
+        } else {
+            if(result){
+                console.log('Contract Recorded to DB');
+                res.json({success: true, ramenAddress: result.ramenAddress});
+            } else {
+                console.log('Not able to record contract to DB');
+                res.json({success: false});
+            }
+        }
+    });
 }
-
-// const registerMethods = async function(newRamenContractAddress) {
-
-//       const requestOptions = {
-//         method: 'POST',
-//         headers: {  "Content-Type": "application/x-www-form-urlencoded", "authToken": authToken, "apiKey" : apiKey },
-//         body: formData
-//       };
-      
-//       fetch(addMethodUrl, requestOptions)
-//         .then(response => response.json())
-//         .then(data => console.log("Method registration response: ", data))     
-//         .catch(error => console.error('Error:', error));
-
-// }
-
 
 router.get('/', (req, res) => {
     res.send('Good day, commander!');
@@ -142,6 +146,56 @@ router.get('/getramen/:address', async (req, res) => {
     
 })
 
+router.get('/getmethodid/:address', async (req, res) => {
+    var address = getCleanAddress(req.params.address);
+
+    var api_key = req.headers.apimkey;
+
+    var host_env = String(process.env.REACT_APP_ALLOW_HOST_FOR_POST);
+    var host_req = String(req.hostname);
+    //console.log(host_req, host_env, api_key, process.env.REACT_APP_API_M_KEY);
+    
+    if(host_req === host_env){
+        
+        if(api_key){
+            if(api_key === process.env.REACT_APP_API_M_KEY){
+                
+                if(address){
+                    //console.log('Address is: ' + address);
+                    //console.log('Get Ramen from DB');
+
+                    const dbConnect = dbo.getDb();
+                    
+                    dbConnect.collection("users").findOne({"ramenAddress": address}, async function (err, result) {
+                        if (err) {
+                            // console.log('DB connect error');
+                            res.status(400).send("DB connect error");
+                        } else {
+                            if(result){
+                                // console.log('methodId found');
+                                res.json({success: true, methodId: result.methodId});
+                            } else {
+                                // console.log('no method id for this ramen');
+                                res.json({success: false});
+                            }
+                        }
+                    });
+
+                } else {
+                    res.status(400).json({error: 'No access'});
+                }
+            } else {
+                res.status(403).json({message: "No access"});
+            }
+        } else {
+            res.status(403).json({message: "No access"});
+        }
+    } else {
+        res.status(403).json({message: "No access"});
+    }
+    
+})
+
 router.post('/setramen/:ownerAddress/:ramenAddress/:walletId', async (req, res) => {
     //var ownerAddress = getCleanAddress(req.params.ownerAddress);
     //var ramenAddress = getCleanAddress(req.params.ramenAddress);
@@ -156,6 +210,34 @@ router.post('/setramen/:ownerAddress/:ramenAddress/:walletId', async (req, res) 
     var host_req = String(req.hostname);
     //console.log(host_req, host_env, api_key, process.env.REACT_APP_API_M_KEY);
     
+    var formDataC = new URLSearchParams({
+        "contractName" : "Timelock Wallet " + walletId,
+        "contractAddress" : ramenAddress,
+        "abi" : abi,
+        "contractType" : "SC",
+        "metaTransactionType": "DEFAULT"
+      });
+
+    let formDataM = new URLSearchParams({
+        "apiType" : "custom",
+        "methodType" : "write",
+        "name": "metatxn",
+        "contractAddress" : ramenAddress,
+        "method" : "executeMetaTransaction"
+       }) 
+       
+    const requestOptionsC = {
+        method: 'POST',
+        headers: {  "Content-Type": "application/x-www-form-urlencoded", "authToken": authToken, "apiKey" : apiKey },
+        body: formDataC
+    };
+
+    const requestOptionsM = {
+        method: 'POST',
+        headers: {  "Content-Type": "application/x-www-form-urlencoded", "authToken": authToken, "apiKey" : apiKey },
+        body: formDataM
+    };
+
     if(host_req === host_env){
         if(api_key){
             if(api_key === process.env.REACT_APP_API_M_KEY){
@@ -163,30 +245,43 @@ router.post('/setramen/:ownerAddress/:ramenAddress/:walletId', async (req, res) 
                     console.log('Owner address is: %s, ramen address is %s', ownerAddress, ramenAddress);
 
                     console.log('Trying to register ramen to Biconomy');
-                    registerContract(ramenAddress, walletId);
-
-                    // TAKE METHOD API ID AND PUT IT IN DB
-
-                    console.log('Trying to record Ramen to DB');
-                    const dbConnect = dbo.getDb();
-                    
-                    dbConnect.collection("users").insertOne({"userAddress": ownerAddress, "ramenAddress": ramenAddress, "registered": true}, async function (err, result) {
-                        if (err) {
-                             console.log('DB connect error');
-                            res.status(400).send("DB connect error");
-                        } else {
-                            if(result){
-                                 console.log('Recorded');
-                                res.json({success: true, ramenAddress: result.ramenAddress});
-                            } else {
-                                 console.log('Not able to record');
-                                res.json({success: false});
-                            }
-                        }
-                    });
-
-                    //res.json({success: true});
-
+                    //registerContract(ramenAddress, walletId)
+                    fetch(addContractUrl, requestOptionsC)
+                        .then(response => response.json())
+                        .then(function (data) {
+                            console.log("Contract registration response: ", data);
+                            return fetch(addMethodUrl, requestOptionsM);
+                        })
+                        .then(response => response.json())     
+                        .then(function (data) {
+                            console.log("Method registration response: ", data);
+                            //console.log("Method id ", data.apiIds[0].apiId);
+                            //methodId = data.apiIds[0].apiId;
+                            return data.apiIds[0].apiId;
+                        })
+                        .then((methodId)=> {
+                            console.log("method id received ", methodId);
+                            console.log('Trying to record Ramen to DB');
+                            const dbConnect = dbo.getDb();
+                            dbConnect.collection("users").insertOne({"userAddress": ownerAddress, "ramenAddress": ramenAddress, "methodId": methodId, "registered": true}, async function (err, result) {
+                                if (err) {
+                                    console.log('DB connect error');
+                                    res.status(400).send("DB connect error");
+                                } else {
+                                    if(result){
+                                        console.log('Contract Recorded to DB');
+                                        res.json({success: true, ramenAddress: result.ramenAddress});
+                                    } else {
+                                        console.log('Not able to record contract to DB');
+                                        res.json({success: false});
+                                    }
+                                }
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            res.status(400).json({error: 'Error registering to Biconomy'});
+                        });
                 } else {
                     res.status(400).json({error: 'No access'});
                 }

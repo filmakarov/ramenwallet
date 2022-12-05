@@ -3,9 +3,15 @@ import { useState, useEffect } from 'react';
 import { HashLink as Link } from 'react-router-hash-link';
 import Web3 from 'web3';
 import { abiStorage } from '../../abi';
+import axios from 'axios';
 
 let sigUtil = require("eth-sig-util");
 var BigNumber = require('bignumber.js');
+
+const client = axios.create({
+    baseURL: '/api',
+    headers: { "Content-type": "application/json" } 
+  });
 
 // Components
 
@@ -133,17 +139,20 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
         let nonce = await ramenContract.methods.getNonce(userAddress).call();
         let ramenName = await ramenContract.methods.expName().call();
         let functionSignature = ramenContract.methods.claimDeposit(parseInt(depositId)).encodeABI();
-
-        // let calldata = web3.eth.abi.encodeFunctionCall({
-        //     name: 'claimDeposit',
-        //     type: 'function',
-        //     inputs: [{
-        //         type: 'uint256',
-        //         name: 'depositId'
-        //     }]
-        // }, [depositId]);
-
-        // console.log(calldata);
+        let methodId;
+        client.get(`/ramen/getmethodid/${ramenAddress}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
+                    .then(res => {
+                        console.log('get method id response ok');
+                        if(res.data.success){
+                            console.log('There is method id');
+                            methodId = res.data.methodId;
+                        } else {
+                            console.log('No method id for this ramen address');
+                        }
+                    }).catch(error => {
+                        console.log('Backend Connection error');
+                        
+                    });
 
         let message = {};
 
@@ -181,7 +190,7 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
                      else if (response && response.result) 
                      {
                        let { r, s, v } = getSignatureParameters(response.result);
-                       sendTransaction(userAddress, functionSignature, r, s, v, depositId);
+                       sendTransaction(userAddress, functionSignature, r, s, v, depositId, methodId);
                      }
             }
           );
@@ -189,10 +198,11 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
     }
 
     // here signer and sender is the same wallet
-    const sendTransaction = async (signerAddress, functionData, r, s, v, depositId) => {
+    const sendTransaction = async (signerAddress, functionData, r, s, v, depositId, methodId) => {
 
         console.log(signerAddress, " | ", functionData, " | ", r, " | ", s, " | ", v);
         console.log('0x' + (chainID).toString(16).padStart(64, '0'));
+        console.log('method id at sendTransaction() ', methodId);
         
         if (web3 && ramenContract) {
             try {
@@ -204,7 +214,7 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
                     },
                     body: JSON.stringify({
                       "to": ramenAddress,
-                      "apiId": "e9ee0a8a-7f6f-4509-af4f-b47e71ef4d9d",
+                      "apiId": methodId,
                       "params": [signerAddress, functionData, r, s, v],
                       "from": signerAddress
                     })
@@ -297,8 +307,8 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
               }
         ];
         const tokenContract = new web3.eth.Contract(erc20ApproveAbi, erc20DepositToken);
-        let apprAmount = BigNumber(erc20DepositAmount).times(convertRate);
-        await tokenContract.methods.approve(ramenAddress, apprAmount).send({from: userAddress})
+        //let apprAmount = BigNumber(erc20DepositAmount).times(BigNumber(10).exponentiatedBy(18));
+        await tokenContract.methods.approve(ramenAddress, web3.utils.toWei(erc20DepositAmount.toString())).send({from: userAddress})
         .on('transactionHash', function(hash){
             // Txn sent , not confirmed on chain yet
             // console.log('transactionHash');
@@ -368,9 +378,9 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
     const handleSubmitEDA = async (event) => {
         event.preventDefault();
         let unlock_timestamp = (parseInt(Date.now()/1000)+parseInt(60*erc20DepositTime));
-        let depAmount = BigNumber(erc20DepositAmount).times(convertRate);
+        //let depAmount = BigNumber(erc20DepositAmount).times(convertRate);
         
-        await ramenContract.methods.depositERC20(erc20DepositToken, depAmount, unlock_timestamp).send({from: userAddress})
+        await ramenContract.methods.depositERC20(erc20DepositToken, web3.utils.toWei(erc20DepositAmount.toString()), unlock_timestamp).send({from: userAddress})
         .on('transactionHash', function(hash){
             // Txn sent , not confirmed on chain yet
             // console.log('transactionHash');

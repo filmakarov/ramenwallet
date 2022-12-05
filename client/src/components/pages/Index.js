@@ -22,15 +22,13 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
 	}, [setCurrentPage]);
 
     const [ramenAddress, setRamenAddress] = useState("0");
-    //const [ramenName, setRamenName] = useState(""); 
+    
     const [ethBalance, setEthBalance] = useState("n/a");
     
     const [erc20Balances, setErc20Balances] = useState({wETH: ["0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6", 0], 
                                                         UNI: ["0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", 0]});
 
     const [erc20sum, setErc20sum] = useState(0);                                            
-
-    const [erc20got, setErc20got] = useState(false);
 
     const [transactionState, setTransactionState] = useState(0);
 
@@ -126,7 +124,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
         if(userAddress){
             if(userAddress !== '0'){
                 
-                /*
+                
                 let cleanAddress = getCleanAddress(userAddress);
 
                 client.get(`/ramen/getramen/${cleanAddress}`, {headers: {'APIMKEY': process.env.REACT_APP_API_M_KEY}})
@@ -144,10 +142,9 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                         setRamenAddress("0");
                     });
                
-                */
 
                 //FOR SERVERLESS
-                setRamenAddress("0x30c317c22ede09621f1bed0c676191fb1118220c");
+                //setRamenAddress("0x30c317c22ede09621f1bed0c676191fb1118220c");
                 /// DELETE IN PROD
                 
             } else {
@@ -201,7 +198,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
             .on('transactionHash', function(hash){
                 // Транзакция отправлена, но еще не было подтверждения
                 // console.log('transactionHash');
-                setTransactionState(2);
+                setTransactionState(9);
             })
             .on("error", function(error) {
                 // Пользователь отменил транзакцию
@@ -214,11 +211,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                 // console.log('Mint complete!');
 
                 // Record to DB
-                await postRamenToDb(getCleanAddress(ownerAddress), getCleanAddress(resultAddress), nextWalletId);
-
-                alert('Ramen boiled');
-
-                //setRamenCreated(true);
+                postRamenToDb(getCleanAddress(ownerAddress), getCleanAddress(resultAddress), nextWalletId);
             });
 
         }
@@ -230,6 +223,8 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                         console.log('setramen response ok');
                         if(res.data.success){
                             console.log('Ramen recorded to DB');
+                            setTransactionState(10);
+                            alert('Ramen boiled');
                             //setRamenAddress(newRamenAddress);
                             await getRamenWallet();
                         } else {
@@ -272,7 +267,7 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                                 <div>Switch to Goerli</div>
                             </>):(
                             <>  
-                                { (transactionState === 2) ? ( <div class="blink_me"> 
+                                { (transactionState === 9) ? ( <div class="blink_me"> 
                                         .... Cooking your ramen ....
                                     </div> ) : ( <>
                                         You have no ramen wallet cooked yet. 
