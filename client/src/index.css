@@ -81,6 +81,10 @@ select {
   left: 10px;
 }
 
+.ramen {
+  color:rgb(242, 249, 167)
+}
+
 .animate-character
 {
    text-transform: uppercase;

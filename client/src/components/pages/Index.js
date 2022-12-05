@@ -196,19 +196,17 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
 
             await CollectionContract.methods.cloneDeterministic(salt, calldata).send({ from: userAddress })
             .on('transactionHash', function(hash){
-                // Транзакция отправлена, но еще не было подтверждения
+                // Txn sent but not confirmed on-chain
                 // console.log('transactionHash');
                 setTransactionState(9);
             })
             .on("error", function(error) {
-                // Пользователь отменил транзакцию
-                // console.log('Mint error');
+                // User canceled
                 // console.log(error.message);
                 setTransactionState(1);
             })
             .on("receipt", async function(receipt) {
-                // Транзакция успешно прошла, минтинг завершен
-                // console.log('Mint complete!');
+                // Txn completed
 
                 // Record to DB
                 postRamenToDb(getCleanAddress(ownerAddress), getCleanAddress(resultAddress), nextWalletId);
@@ -270,11 +268,10 @@ const Index = ({AppName, AppUrl, setCurrentPage, web3Connect, isProvider, userAd
                                     </>)
 
                                 }
-                                {/* <div><RamenWallet ramenAddress={ramenAddress} AppName={AppName} AppUrl={AppUrl} /></div> */}
+                                
                             </>)
                         ) : (
                             <>
-                                {/* Your ramen: {ramenAddress} */}
                                 Welcome to kitchen!
                                 <div>
                                     <RamenWallet ramenAddress={ramenAddress} chainID={chainID} CollectionContract={CollectionContract} userAddress={userAddress} convertRate={convertRate} web3={web3} transactionState={transactionState} setTransactionState={setTransactionState}/>

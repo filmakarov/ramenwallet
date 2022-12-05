@@ -424,7 +424,7 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
         <>
             {(chainID!==5)?(<>Switch to Goerli</>):(
             <>
-                <div className="page-text">
+                <div className="ramen">
                     YOUR RAMEN WALLET : {ramenAddress}    
                 </div>
                 <div>==================</div>
@@ -477,8 +477,7 @@ const RamenWallet = ({AppName, AppUrl, web3Connect, isProvider, userAddress, web
 
 
                 <div>Total deposits were made: {lastDeposit}</div>
-                <div className='dep-head'>**Unclaimed:**</div>
-                {/* <div>{unclaimedDeposits}</div> */}
+                <div className='dep-head'>**Unclaimed deposits:**</div>
                 <div>{listDeposits}</div>
                 {(transactionState===2)?(<div className="blink_me">...Deposit is being confirmed on-chain...</div>):(<></>)}
             </>
